@@ -18,3 +18,14 @@ CREATE TABLE IF NOT EXISTS public.listing
     created_date         timestamp,
     updated_date         timestamp
 );
+
+CREATE TABLE IF NOT EXISTS public.price
+(
+    id                   serial           primary key,
+    listing_id           serial           not null,
+    price_eur            double precision not null,
+    created_date         timestamp
+);
+
+ALTER TABLE public.price ADD FOREIGN KEY (listing_id) REFERENCES public.listing(id);
+
