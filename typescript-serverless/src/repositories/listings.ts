@@ -2,6 +2,7 @@ import PostgresClient from "serverless-postgres";
 import { Listing, ListingWrite } from "@/types.generated";
 import { extractVariables } from "@/libs/postgres";
 import { EntityNotFound } from "@/libs/errors";
+import { getRepository as pricesRepository } from "./prices"
 
 type ListingTableRow = {
   id?: number;
@@ -105,8 +106,11 @@ export function getRepository(postgres: PostgresClient) {
         RETURNING *
       `;
       const result = await postgres.query(queryString, queryValues);
+      const listingResult = tableRowToListing(result.rows[0]);
 
-      return tableRowToListing(result.rows[0]);
+      await pricesRepository(this.context.postgres).insertPrice({ listing_id: listingResult.id, listing_lastest_price_eur: listing.latest_price_eur });
+
+      return listingResult;
     },
 
     async updateListing(listingId: number, listing: ListingWrite) {
@@ -123,6 +127,8 @@ export function getRepository(postgres: PostgresClient) {
       `;
       const queryValues = [...values, listingId];
       const result = await postgres.query(queryString, queryValues);
+
+      await pricesRepository(postgres).insertPrice({ listing_id: listingId, listing_lastest_price_eur: listing.latest_price_eur });
 
       return tableRowToListing(result.rows[0]);
     },
