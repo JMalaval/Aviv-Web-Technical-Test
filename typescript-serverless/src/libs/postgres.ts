@@ -31,3 +31,8 @@ export function extractVariables(row: object) {
 
   return { columns, variables, columnsVariables, values };
 }
+
+export async function cleanTables(postgres) {
+  await postgres.query('TRUNCATE TABLE public.price');
+  await postgres.query('TRUNCATE TABLE public.listing CASCADE');
+}

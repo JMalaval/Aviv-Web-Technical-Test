@@ -22,7 +22,7 @@ type ListingTableRow = {
   country: string;
 };
 
-function tableRowToListing(row: ListingTableRow): Listing {
+export function tableRowToListing(row: ListingTableRow): Listing {
   return {
     id: row.id,
     description: row.description,
@@ -44,7 +44,7 @@ function tableRowToListing(row: ListingTableRow): Listing {
   };
 }
 
-function listingToTableRow(
+export function listingToTableRow(
   listing: ListingWrite,
   createdDate: Date
 ): ListingTableRow {
@@ -75,7 +75,7 @@ export function getRepository(postgres: PostgresClient) {
       return result.rows.map(tableRowToListing);
     },
 
-    async getListing(listingId: number) {
+    async getListing(listingId: number): Promise<Listing> {
       const queryString = `SELECT * FROM listing WHERE id = $1`;
       const queryValues = [listingId];
 
@@ -108,15 +108,16 @@ export function getRepository(postgres: PostgresClient) {
       const result = await postgres.query(queryString, queryValues);
       const listingResult = tableRowToListing(result.rows[0]);
 
-      await pricesRepository(this.context.postgres).insertPrice({ listing_id: listingResult.id, listing_lastest_price_eur: listing.latest_price_eur });
+      await pricesRepository(postgres).insertPrice({ listing_id: listingResult.id, listing_lastest_price_eur: listing.latest_price_eur });
 
       return listingResult;
     },
 
     async updateListing(listingId: number, listing: ListingWrite) {
-      const originalListing = await this.getListing(listingId);
+      const originalListing: Listing = await this.getListing(listingId);
 
-      const tableRow = listingToTableRow(listing, originalListing.created_date);
+      const tableRow = listingToTableRow(listing, new Date(originalListing.created_date));
+
       const { columns, columnsVariables, values } = extractVariables(tableRow);
 
       const queryString = `
@@ -128,7 +129,10 @@ export function getRepository(postgres: PostgresClient) {
       const queryValues = [...values, listingId];
       const result = await postgres.query(queryString, queryValues);
 
-      await pricesRepository(postgres).insertPrice({ listing_id: listingId, listing_lastest_price_eur: listing.latest_price_eur });
+      /** Insert price only if original price and new update price are different */
+      if (originalListing.latest_price_eur !== listing.latest_price_eur) {
+        await pricesRepository(postgres).insertPrice({ listing_id: listingId, listing_lastest_price_eur: listing.latest_price_eur });
+      }
 
       return tableRowToListing(result.rows[0]);
     },
